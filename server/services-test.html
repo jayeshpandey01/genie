@@ -1,0 +1,84 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Services Image Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .service { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        img { max-width: 200px; max-height: 150px; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Services Image Test</h1>
+    
+        <div class="service">
+            <h3>Women's Salon & Spa</h3>
+            <p>Image Path: assets/services/WomenSalon.svg</p>
+            <p>Full URL: http://localhost:5000/assets/services/WomenSalon.svg</p>
+            <img src="http://localhost:5000/assets/services/WomenSalon.svg" 
+                 alt="Women's Salon & Spa"
+                 onload="this.nextElementSibling.innerHTML='<span class=success>✅ Image loaded</span>'"
+                 onerror="this.nextElementSibling.innerHTML='<span class=error>❌ Image failed to load</span>'">
+            <p></p>
+        </div>
+    
+        <div class="service">
+            <h3>Men's Salon & Spa</h3>
+            <p>Image Path: assets/services/MenSalon.svg</p>
+            <p>Full URL: http://localhost:5000/assets/services/MenSalon.svg</p>
+            <img src="http://localhost:5000/assets/services/MenSalon.svg" 
+                 alt="Men's Salon & Spa"
+                 onload="this.nextElementSibling.innerHTML='<span class=success>✅ Image loaded</span>'"
+                 onerror="this.nextElementSibling.innerHTML='<span class=error>❌ Image failed to load</span>'">
+            <p></p>
+        </div>
+    
+        <div class="service">
+            <h3>AC & Appliances Repair</h3>
+            <p>Image Path: assets/services/ACRepair.svg</p>
+            <p>Full URL: http://localhost:5000/assets/services/ACRepair.svg</p>
+            <img src="http://localhost:5000/assets/services/ACRepair.svg" 
+                 alt="AC & Appliances Repair"
+                 onload="this.nextElementSibling.innerHTML='<span class=success>✅ Image loaded</span>'"
+                 onerror="this.nextElementSibling.innerHTML='<span class=error>❌ Image failed to load</span>'">
+            <p></p>
+        </div>
+    
+        <div class="service">
+            <h3>Cleaning & Pest Control</h3>
+            <p>Image Path: assets/services/CleaningControl.svg</p>
+            <p>Full URL: http://localhost:5000/assets/services/CleaningControl.svg</p>
+            <img src="http://localhost:5000/assets/services/CleaningControl.svg" 
+                 alt="Cleaning & Pest Control"
+                 onload="this.nextElementSibling.innerHTML='<span class=success>✅ Image loaded</span>'"
+                 onerror="this.nextElementSibling.innerHTML='<span class=error>❌ Image failed to load</span>'">
+            <p></p>
+        </div>
+    
+        <div class="service">
+            <h3>Electrician, Plumber & Carpenter</h3>
+            <p>Image Path: assets/services/Electrician.svg</p>
+            <p>Full URL: http://localhost:5000/assets/services/Electrician.svg</p>
+            <img src="http://localhost:5000/assets/services/Electrician.svg" 
+                 alt="Electrician, Plumber & Carpenter"
+                 onload="this.nextElementSibling.innerHTML='<span class=success>✅ Image loaded</span>'"
+                 onerror="this.nextElementSibling.innerHTML='<span class=error>❌ Image failed to load</span>'">
+            <p></p>
+        </div>
+    
+        <div class="service">
+            <h3>Painting & Waterproofing</h3>
+            <p>Image Path: assets/services/Painting.svg</p>
+            <p>Full URL: http://localhost:5000/assets/services/Painting.svg</p>
+            <img src="http://localhost:5000/assets/services/Painting.svg" 
+                 alt="Painting & Waterproofing"
+                 onload="this.nextElementSibling.innerHTML='<span class=success>✅ Image loaded</span>'"
+                 onerror="this.nextElementSibling.innerHTML='<span class=error>❌ Image failed to load</span>'">
+            <p></p>
+        </div>
+    
+</body>
+</html>
