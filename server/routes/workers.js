@@ -553,4 +553,285 @@ router.put("/tasks/:taskId/status", authenticateWorker, async (req, res) => {
     }
 });
 
+// Get worker availability by cities (for showing where workers are available)
+router.get("/availability", async (req, res) => {
+    try {
+        const workers = await Worker.find({ status: 'approved' })
+            .select('location.city location.area')
+            .lean();
+
+        // Group by city
+        const cityStats = {};
+        workers.forEach(worker => {
+            const city = worker.location?.city || 'Unknown';
+            if (!cityStats[city]) {
+                cityStats[city] = {
+                    count: 0,
+                    areas: new Set()
+                };
+            }
+            cityStats[city].count++;
+            if (worker.location?.area) {
+                cityStats[city].areas.add(worker.location.area);
+            }
+        });
+
+        // Convert to array and format
+        const availability = Object.entries(cityStats).map(([city, stats]) => ({
+            city,
+            workerCount: stats.count,
+            areas: Array.from(stats.areas).sort()
+        })).sort((a, b) => b.workerCount - a.workerCount);
+
+        res.json({
+            success: true,
+            availability,
+            totalWorkers: workers.length
+        });
+
+    } catch (error) {
+        console.error("Error fetching worker availability:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch worker availability"
+        });
+    }
+});
+
+// Get nearby workers (Public endpoint for user selection)
+router.get("/nearby", async (req, res) => {
+    try {
+        const { serviceId, lat, lng, radius = 100 } = req.query;
+
+        if (!lat || !lng) {
+            return res.status(400).json({
+                success: false,
+                message: "Latitude and longitude are required"
+            });
+        }
+
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lng);
+        const radiusKm = parseFloat(radius);
+
+        console.log(`\n=== Worker Search ===`);
+        console.log(`Location: (${latitude}, ${longitude})`);
+        console.log(`Radius: ${radiusKm}km`);
+        console.log(`Service: ${serviceId || 'Any'}`);
+
+        // Map service titles to worker skill categories
+        const serviceToSkillMap = {
+            // Cleaning services
+            'cleaning': 'Cleaning',
+            'bathroom': 'Cleaning',
+            'kitchen': 'Cleaning',
+            'deep': 'Cleaning',
+            'intensive': 'Cleaning',
+            'house': 'Cleaning',
+            'office': 'Cleaning',
+            
+            // Plumbing services
+            'plumbing': 'Plumbing',
+            'pipe': 'Plumbing',
+            'leak': 'Plumbing',
+            'tap': 'Plumbing',
+            'drain': 'Plumbing',
+            'water': 'Plumbing',
+            
+            // Electrical services
+            'electrical': 'Electrical',
+            'wiring': 'Electrical',
+            'switch': 'Electrical',
+            'light': 'Electrical',
+            'fan': 'Electrical',
+            'appliance': 'Electrical',
+            
+            // Carpentry services
+            'carpentry': 'Carpentry',
+            'furniture': 'Carpentry',
+            'wood': 'Carpentry',
+            'door': 'Carpentry',
+            'cabinet': 'Carpentry',
+            'wardrobe': 'Carpentry',
+            
+            // Painting services
+            'painting': 'Painting',
+            'paint': 'Painting',
+            'wall': 'Painting',
+            'interior': 'Painting',
+            'exterior': 'Painting',
+            
+            // AC & Appliance services
+            'ac': 'AC Repair',
+            'air': 'AC Repair',
+            'conditioning': 'AC Repair',
+            'refrigerator': 'Refrigerator Repair',
+            'fridge': 'Refrigerator Repair',
+            'washing': 'Washing Machine Repair',
+            'microwave': 'Microwave Repair',
+            
+            // Beauty services
+            'salon': 'Beauty Services',
+            'beauty': 'Beauty Services',
+            'spa': 'Beauty Services',
+            'facial': 'Beauty Services',
+            'makeup': 'Beauty Services',
+            'hair': 'Beauty Services',
+            'waxing': 'Beauty Services',
+            'pedicure': 'Beauty Services',
+            'manicure': 'Beauty Services',
+            
+            // Pest control
+            'pest': 'Pest Control',
+            'termite': 'Pest Control',
+            'cockroach': 'Pest Control',
+            'rodent': 'Pest Control',
+            
+            // Gardening
+            'garden': 'Gardening',
+            'plant': 'Gardening',
+            'lawn': 'Gardening',
+            
+            // Tutoring
+            'tutor': 'Tutoring',
+            'teaching': 'Tutoring',
+            'education': 'Tutoring',
+            'math': 'Tutoring',
+            'science': 'Tutoring',
+            'english': 'Tutoring',
+        };
+
+        // Extract skill category from service title
+        let skillCategory = null;
+        if (serviceId) {
+            const serviceLower = serviceId.toLowerCase();
+            for (const [keyword, skill] of Object.entries(serviceToSkillMap)) {
+                if (serviceLower.includes(keyword)) {
+                    skillCategory = skill;
+                    console.log(`✓ Mapped "${serviceId}" → "${skill}"`);
+                    break;
+                }
+            }
+            if (!skillCategory) {
+                console.log(`⚠ No skill mapping found for "${serviceId}", showing all workers`);
+            }
+        }
+
+        // Find nearby workers
+        let workers = await Worker.findNearby(latitude, longitude, radiusKm, skillCategory);
+
+        console.log(`Found ${workers.length} workers`);
+
+        // If no workers found with skill filter, try without filter
+        if (workers.length === 0 && skillCategory) {
+            console.log(`Retrying without skill filter...`);
+            workers = await Worker.findNearby(latitude, longitude, radiusKm, null);
+            console.log(`Found ${workers.length} workers without skill filter`);
+        }
+
+        // Calculate distance for each worker
+        const workersWithDistance = workers.map(worker => {
+            const distance = calculateDistance(
+                latitude,
+                longitude,
+                worker.location?.coordinates?.lat,
+                worker.location?.coordinates?.lng
+            );
+
+            return {
+                ...worker,
+                distance: distance,
+                distanceText: distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`,
+                rating: worker.stats?.rating || 4.5,
+                totalReviews: worker.stats?.totalRatings || 0,
+                completedJobs: worker.stats?.totalJobsCompleted || 0,
+                specialization: worker.skills?.[0]?.serviceName || 'Service Provider'
+            };
+        });
+
+        // Sort by distance
+        workersWithDistance.sort((a, b) => a.distance - b.distance);
+
+        console.log(`Returning ${workersWithDistance.length} workers`);
+        console.log(`===================\n`);
+
+        res.json({
+            success: true,
+            workers: workersWithDistance,
+            count: workersWithDistance.length,
+            searchedSkill: skillCategory,
+            message: workers.length === 0 ? 'No workers found in this area' : undefined
+        });
+
+    } catch (error) {
+        console.error("Error fetching nearby workers:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch nearby workers",
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
+
+// Update worker location (for real-time tracking)
+router.put("/location", authenticateWorker, async (req, res) => {
+    try {
+        const { lat, lng } = req.body;
+
+        if (!lat || !lng) {
+            return res.status(400).json({
+                success: false,
+                message: "Latitude and longitude are required"
+            });
+        }
+
+        const worker = await Worker.findById(req.user._id);
+        
+        if (!worker) {
+            return res.status(404).json({
+                success: false,
+                message: "Worker not found"
+            });
+        }
+
+        await worker.updateLocation(parseFloat(lat), parseFloat(lng));
+
+        res.json({
+            success: true,
+            message: "Location updated successfully",
+            location: worker.location
+        });
+
+    } catch (error) {
+        console.error("Error updating worker location:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to update location"
+        });
+    }
+});
+
+// Helper function to calculate distance between two coordinates (Haversine formula)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 999; // Return large number if coordinates missing
+
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    
+    const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    
+    return distance;
+}
+
+function toRad(degrees) {
+    return degrees * (Math.PI / 180);
+}
+
 export default router;

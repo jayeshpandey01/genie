@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { HiPhoto, HiXMark, HiCurrencyRupee } from "react-icons/hi2";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import CustomSelect from "./CustomSelect";
 
 export default function ListingForm({ listing = null, onSubmit, onCancel }) {
     const navigate = useNavigate();
@@ -12,19 +13,37 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
     const [errors, setErrors] = useState({});
     const [images, setImages] = useState([]);
     const [imageFiles, setImageFiles] = useState([]);
-    const [categories, setCategories] = useState([]);
+    const [categories, setCategories] = useState([
+        { value: 'electronics', label: 'Electronics' },
+        { value: 'furniture', label: 'Furniture' },
+        { value: 'vehicles', label: 'Vehicles' },
+        { value: 'clothing', label: 'Clothing' },
+        { value: 'books', label: 'Books' },
+        { value: 'sports', label: 'Sports' },
+        { value: 'home-garden', label: 'Home & Garden' },
+        { value: 'other', label: 'Other' }
+    ]);
     
     const [formData, setFormData] = useState({
         title: '',
         description: '',
         category: '',
-        price: '',
-        condition: '',
         location: '',
-        images: []
+        images: [],
+        // Rental fields (PRIMARY)
+        rentalPeriod: 'daily', // daily, weekly, monthly, hourly
+        rentalPrice: '',
+        securityDeposit: '',
+        availableFrom: '',
+        availableTo: '',
+        minRentalDays: 1,
+        // Sale fields (OPTIONAL)
+        availableForSale: false,
+        salePrice: '',
+        condition: 'good'
     });
 
-    // Fetch categories from API
+    // Fetch categories from API (optional - fallback already set in state)
     useEffect(() => {
         const fetchCategories = async () => {
             try {
@@ -33,7 +52,7 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.success && data.categories) {
+                    if (data.success && data.categories && data.categories.length > 0) {
                         setCategories(data.categories.map(cat => ({
                             value: cat.slug,
                             label: cat.name
@@ -42,17 +61,7 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
                 }
             } catch (error) {
                 console.error('Error fetching categories:', error);
-                // Fallback to hardcoded categories
-                setCategories([
-                    { value: 'electronics', label: 'Electronics' },
-                    { value: 'furniture', label: 'Furniture' },
-                    { value: 'vehicles', label: 'Vehicles' },
-                    { value: 'clothing', label: 'Clothing' },
-                    { value: 'books', label: 'Books' },
-                    { value: 'sports', label: 'Sports' },
-                    { value: 'home-garden', label: 'Home & Garden' },
-                    { value: 'other', label: 'Other' }
-                ]);
+                // Using fallback categories from initial state
             }
         };
 
@@ -74,10 +83,19 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
                 title: listing.title || '',
                 description: listing.description || '',
                 category: listing.category || '',
-                price: listing.price?.toString() || '',
-                condition: listing.condition || '',
                 location: listing.location || '',
-                images: listing.images || []
+                images: listing.images || [],
+                // Rental fields (PRIMARY)
+                rentalPeriod: listing.rentalPeriod || 'daily',
+                rentalPrice: listing.rentalPrice?.toString() || '',
+                securityDeposit: listing.securityDeposit?.toString() || '',
+                availableFrom: listing.availableFrom || '',
+                availableTo: listing.availableTo || '',
+                minRentalDays: listing.minRentalDays || 1,
+                // Sale fields (OPTIONAL)
+                availableForSale: listing.availableForSale || false,
+                salePrice: listing.salePrice?.toString() || '',
+                condition: listing.condition || 'good'
             });
             setImages(listing.images || []);
         }
@@ -173,14 +191,20 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
             newErrors.category = 'Category is required';
         }
 
-        if (!formData.price) {
-            newErrors.price = 'Price is required';
-        } else if (isNaN(formData.price) || parseFloat(formData.price) <= 0) {
-            newErrors.price = 'Price must be a valid positive number';
+        // Rental price is REQUIRED (primary purpose)
+        if (!formData.rentalPrice) {
+            newErrors.rentalPrice = 'Rental price is required';
+        } else if (isNaN(formData.rentalPrice) || parseFloat(formData.rentalPrice) <= 0) {
+            newErrors.rentalPrice = 'Rental price must be a valid positive number';
         }
 
-        if (!formData.condition) {
-            newErrors.condition = 'Condition is required';
+        // Sale price validation - only if available for sale
+        if (formData.availableForSale) {
+            if (!formData.salePrice) {
+                newErrors.salePrice = 'Sale price is required when item is available for sale';
+            } else if (isNaN(formData.salePrice) || parseFloat(formData.salePrice) <= 0) {
+                newErrors.salePrice = 'Sale price must be a valid positive number';
+            }
         }
 
         if (!formData.location.trim()) {
@@ -206,10 +230,21 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
                 title: formData.title,
                 description: formData.description,
                 category: formData.category,
-                price: formData.price,
+                location: formData.location,
                 condition: formData.condition,
-                location: formData.location
+                // Rental fields (PRIMARY)
+                rentalPeriod: formData.rentalPeriod,
+                rentalPrice: formData.rentalPrice,
+                securityDeposit: formData.securityDeposit || 0,
+                availableFrom: formData.availableFrom,
+                availableTo: formData.availableTo,
+                minRentalDays: formData.minRentalDays || 1,
+                // Sale fields (OPTIONAL)
+                availableForSale: formData.availableForSale,
+                salePrice: formData.availableForSale ? formData.salePrice : undefined
             };
+
+            console.log('Submitting listing data:', listingData); // Debug log
 
             let response;
             if (listing) {
@@ -234,12 +269,21 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
                 });
             }
 
+            const result = await response.json();
+            console.log('Server response:', result); // Debug log
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to save listing');
+                // Handle validation errors from server
+                if (result.errors && Array.isArray(result.errors)) {
+                    const newErrors = {};
+                    result.errors.forEach(error => {
+                        newErrors[error.field] = error.message;
+                    });
+                    setErrors(newErrors);
+                }
+                throw new Error(result.message || 'Failed to save listing');
             }
 
-            const result = await response.json();
             let finalListing = result.listing;
 
             // If there are images to upload, upload them now
@@ -288,10 +332,10 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
         <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">
-                    {listing ? 'Edit Listing' : 'Post New Item'}
+                    {listing ? 'Edit Rental Listing' : 'List Your Product for Rent'}
                 </h2>
                 <p className="text-gray-600 mt-1">
-                    Fill in the details below to {listing ? 'update your' : 'create a new'} listing
+                    Share your products with others and earn rental income
                 </p>
             </div>
 
@@ -347,22 +391,15 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
                         <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
                             Category *
                         </label>
-                        <select
+                        <CustomSelect
                             id="category"
                             name="category"
                             value={formData.category}
                             onChange={handleInputChange}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                errors.category ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                        >
-                            <option value="">Select a category</option>
-                            {categories.map(cat => (
-                                <option key={cat.value} value={cat.value}>
-                                    {cat.label}
-                                </option>
-                            ))}
-                        </select>
+                            options={categories}
+                            placeholder="Select a category"
+                            error={!!errors.category}
+                        />
                         {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category}</p>}
                     </div>
 
@@ -370,22 +407,15 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
                         <label htmlFor="condition" className="block text-sm font-medium text-gray-700 mb-2">
                             Condition *
                         </label>
-                        <select
+                        <CustomSelect
                             id="condition"
                             name="condition"
                             value={formData.condition}
                             onChange={handleInputChange}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                errors.condition ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                        >
-                            <option value="">Select condition</option>
-                            {conditions.map(cond => (
-                                <option key={cond.value} value={cond.value}>
-                                    {cond.label}
-                                </option>
-                            ))}
-                        </select>
+                            options={conditions}
+                            placeholder="Select condition"
+                            error={!!errors.condition}
+                        />
                         {errors.condition && <p className="text-red-500 text-sm mt-1">{errors.condition}</p>}
                     </div>
                 </div>
@@ -394,7 +424,7 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
-                            Price (₹) *
+                            {formData.isRental ? 'Sale Price (Optional)' : 'Price (₹) *'}
                         </label>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -434,6 +464,148 @@ export default function ListingForm({ listing = null, onSubmit, onCancel }) {
                         {errors.location && <p className="text-red-500 text-sm mt-1">{errors.location}</p>}
                     </div>
                 </div>
+
+                {/* Rental Toggle */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <label className="flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            name="isRental"
+                            checked={formData.isRental}
+                            onChange={(e) => setFormData(prev => ({ ...prev, isRental: e.target.checked }))}
+                            className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-3">
+                            <span className="text-sm font-medium text-gray-900">Available for Rent</span>
+                            <p className="text-xs text-gray-600">Check this if you want to rent out this item</p>
+                        </span>
+                    </label>
+                </div>
+
+                {/* Rental Details - Show only if isRental is true */}
+                {formData.isRental && (
+                    <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h3 className="font-semibold text-gray-900">Rental Details</h3>
+                        
+                        {/* Rental Period and Price */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor="rentalPeriod" className="block text-sm font-medium text-gray-700 mb-2">
+                                    Rental Period *
+                                </label>
+                                <select
+                                    id="rentalPeriod"
+                                    name="rentalPeriod"
+                                    value={formData.rentalPeriod}
+                                    onChange={handleInputChange}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                    <option value="hourly">Per Hour</option>
+                                    <option value="daily">Per Day</option>
+                                    <option value="weekly">Per Week</option>
+                                    <option value="monthly">Per Month</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label htmlFor="rentalPrice" className="block text-sm font-medium text-gray-700 mb-2">
+                                    Rental Price (₹) *
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <HiCurrencyRupee className="h-5 w-5 text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="number"
+                                        id="rentalPrice"
+                                        name="rentalPrice"
+                                        value={formData.rentalPrice}
+                                        onChange={handleInputChange}
+                                        placeholder="0"
+                                        min="1"
+                                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                            errors.rentalPrice ? 'border-red-500' : 'border-gray-300'
+                                        }`}
+                                    />
+                                </div>
+                                {errors.rentalPrice && <p className="text-red-500 text-sm mt-1">{errors.rentalPrice}</p>}
+                            </div>
+                        </div>
+
+                        {/* Security Deposit and Min Days */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor="securityDeposit" className="block text-sm font-medium text-gray-700 mb-2">
+                                    Security Deposit (₹)
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <HiCurrencyRupee className="h-5 w-5 text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="number"
+                                        id="securityDeposit"
+                                        name="securityDeposit"
+                                        value={formData.securityDeposit}
+                                        onChange={handleInputChange}
+                                        placeholder="0"
+                                        min="0"
+                                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label htmlFor="minRentalDays" className="block text-sm font-medium text-gray-700 mb-2">
+                                    Minimum Rental Period
+                                </label>
+                                <input
+                                    type="number"
+                                    id="minRentalDays"
+                                    name="minRentalDays"
+                                    value={formData.minRentalDays}
+                                    onChange={handleInputChange}
+                                    placeholder="1"
+                                    min="1"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Availability Dates */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor="availableFrom" className="block text-sm font-medium text-gray-700 mb-2">
+                                    Available From
+                                </label>
+                                <input
+                                    type="date"
+                                    id="availableFrom"
+                                    name="availableFrom"
+                                    value={formData.availableFrom}
+                                    onChange={handleInputChange}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label htmlFor="availableTo" className="block text-sm font-medium text-gray-700 mb-2">
+                                    Available Until
+                                </label>
+                                <input
+                                    type="date"
+                                    id="availableTo"
+                                    name="availableTo"
+                                    value={formData.availableTo}
+                                    onChange={handleInputChange}
+                                    min={formData.availableFrom || new Date().toISOString().split('T')[0]}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Image Upload */}
                 <div>

@@ -8,32 +8,47 @@ import xss from 'xss';
 // Rate limiting configurations
 export const generalLimiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000, // limit each IP to 1000 requests per windowMs (increased for development)
     message: {
         error: 'Too many requests from this IP, please try again later.',
         retryAfter: Math.ceil((parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000) / 1000)
     },
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => {
+        // Skip rate limiting in development for localhost
+        return process.env.NODE_ENV === 'development' && 
+               (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1');
+    }
 });
 
 export const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // limit each IP to 5 auth requests per windowMs
+    max: 50, // limit each IP to 50 auth requests per windowMs (increased from 5)
     message: {
         error: 'Too many authentication attempts, please try again later.',
         retryAfter: 900
     },
     skipSuccessfulRequests: true,
+    skip: (req) => {
+        // Skip rate limiting in development for localhost
+        return process.env.NODE_ENV === 'development' && 
+               (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1');
+    }
 });
 
 export const searchLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 30, // limit each IP to 30 search requests per minute
+    max: 100, // limit each IP to 100 search requests per minute (increased from 30)
     message: {
         error: 'Too many search requests, please slow down.',
         retryAfter: 60
     },
+    skip: (req) => {
+        // Skip rate limiting in development for localhost
+        return process.env.NODE_ENV === 'development' && 
+               (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1');
+    }
 });
 
 // Security middleware

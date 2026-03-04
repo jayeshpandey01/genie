@@ -158,9 +158,11 @@ router.post("/verify-payment", authenticateUser, validate(schemas.payment), asyn
             currency: payment.currency,
             status: paymentStatus,
             method: payment.method,
+            paymentMethod: 'online',
             items: orderDetails.items,
             summary: orderDetails.summary,
             customerDetails: orderDetails.customerDetails,
+            workerAssignments: orderDetails.workerAssignments || [],
             attempts: payment.count,
             verifiedAt: new Date(),
         });
@@ -302,6 +304,7 @@ router.post("/cod-order", authenticateUser, async (req, res) => {
             items: items,
             summary: summary,
             customerDetails: customerDetails,
+            workerAssignments: req.body.workerAssignments || [],
             createdAt: new Date(),
         });
 

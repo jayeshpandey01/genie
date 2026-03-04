@@ -27,7 +27,6 @@ const listingSchema = new mongoose.Schema({
     },
     price: {
         type: Number,
-        required: [true, 'Price is required'],
         min: [0, 'Price cannot be negative'],
         index: true
     },
@@ -84,6 +83,71 @@ const listingSchema = new mongoose.Schema({
         default: 0,
         min: 0
     },
+    // Rental fields
+    isRental: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    rentalPeriod: {
+        type: String,
+        enum: ['hourly', 'daily', 'weekly', 'monthly'],
+        required: function() { return this.isRental; }
+    },
+    rentalPrice: {
+        type: Number,
+        min: [0, 'Rental price cannot be negative'],
+        required: function() { return this.isRental; }
+    },
+    securityDeposit: {
+        type: Number,
+        min: [0, 'Security deposit cannot be negative'],
+        default: 0
+    },
+    availableFrom: {
+        type: Date,
+        required: function() { return this.isRental; }
+    },
+    availableTo: {
+        type: Date,
+        required: function() { return this.isRental; }
+    },
+    minRentalDays: {
+        type: Number,
+        min: 1,
+        default: 1
+    },
+    currentlyRented: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    rentedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    rentalStartDate: {
+        type: Date
+    },
+    rentalEndDate: {
+        type: Date
+    },
+    rentalHistory: [{
+        rentedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        startDate: Date,
+        endDate: Date,
+        totalAmount: Number,
+        securityDepositPaid: Number,
+        securityDepositReturned: Number,
+        status: {
+            type: String,
+            enum: ['active', 'completed', 'cancelled'],
+            default: 'active'
+        }
+    }],
     createdAt: {
         type: Date,
         default: Date.now,

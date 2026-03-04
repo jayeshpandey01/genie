@@ -71,6 +71,29 @@ const paymentSchema = new mongoose.Schema({
             quantity: Number,
             price: Number,
             total: Number,
+            assignedWorker: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Worker",
+            },
+        },
+    ],
+    // Worker assignments for all items
+    workerAssignments: [
+        {
+            serviceId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Service",
+            },
+            workerId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Worker",
+            },
+            workerName: String,
+            workerPhone: String,
+            assignedAt: {
+                type: Date,
+                default: Date.now,
+            },
         },
     ],
     summary: {

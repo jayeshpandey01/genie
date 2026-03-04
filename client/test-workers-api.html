@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Workers API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f3f4f6;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Workers API</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Check Backend Connection</h2>
+        <button onclick="testBackend()">Test Backend</button>
+        <div id="backend-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Fetch Workers (Mumbai)</h2>
+        <button onclick="testMumbai()">Test Mumbai (100km)</button>
+        <div id="mumbai-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Fetch Workers (Delhi)</h2>
+        <button onclick="testDelhi()">Test Delhi (100km)</button>
+        <div id="delhi-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Custom Location</h2>
+        <input type="number" id="lat" placeholder="Latitude" value="19.0760" step="0.0001" style="width: 150px; padding: 8px;">
+        <input type="number" id="lng" placeholder="Longitude" value="72.8777" step="0.0001" style="width: 150px; padding: 8px;">
+        <input type="number" id="radius" placeholder="Radius (km)" value="100" style="width: 100px; padding: 8px;">
+        <button onclick="testCustom()">Test Custom Location</button>
+        <div id="custom-result" class="result"></div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:5000';
+
+        async function testBackend() {
+            const resultDiv = document.getElementById('backend-result');
+            resultDiv.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/workers/nearby?lat=19.0760&lng=72.8777&radius=10`);
+                const data = await response.json();
+                
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ Backend Connected!\nStatus: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}\n\nMake sure backend is running on ${BACKEND_URL}`;
+            }
+        }
+
+        async function testMumbai() {
+            const resultDiv = document.getElementById('mumbai-result');
+            resultDiv.textContent = 'Fetching workers...';
+            
+            try {
+                const url = `${BACKEND_URL}/api/workers/nearby?lat=19.0760&lng=72.8777&radius=100`;
+                console.log('Fetching:', url);
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Found ${data.count} workers in Mumbai!\n\n`;
+                    
+                    if (data.workers && data.workers.length > 0) {
+                        resultDiv.textContent += 'First 5 workers:\n';
+                        data.workers.slice(0, 5).forEach((worker, i) => {
+                            resultDiv.textContent += `\n${i + 1}. ${worker.first_name} ${worker.last_name}`;
+                            resultDiv.textContent += `\n   Location: ${worker.location?.area || 'N/A'}`;
+                            resultDiv.textContent += `\n   Distance: ${worker.distanceText || 'N/A'}`;
+                            resultDiv.textContent += `\n   Rating: ${worker.rating || 'N/A'} ⭐`;
+                            resultDiv.textContent += `\n`;
+                        });
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ ${data.message || 'Failed to fetch workers'}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+
+        async function testDelhi() {
+            const resultDiv = document.getElementById('delhi-result');
+            resultDiv.textContent = 'Fetching workers...';
+            
+            try {
+                const url = `${BACKEND_URL}/api/workers/nearby?lat=28.6315&lng=77.2167&radius=100`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Found ${data.count} workers in Delhi!\n\n`;
+                    
+                    if (data.workers && data.workers.length > 0) {
+                        data.workers.forEach((worker, i) => {
+                            resultDiv.textContent += `\n${i + 1}. ${worker.first_name} ${worker.last_name}`;
+                            resultDiv.textContent += `\n   Location: ${worker.location?.area || 'N/A'}`;
+                            resultDiv.textContent += `\n   Distance: ${worker.distanceText || 'N/A'}`;
+                            resultDiv.textContent += `\n`;
+                        });
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ ${data.message || 'Failed to fetch workers'}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+
+        async function testCustom() {
+            const resultDiv = document.getElementById('custom-result');
+            const lat = document.getElementById('lat').value;
+            const lng = document.getElementById('lng').value;
+            const radius = document.getElementById('radius').value;
+            
+            resultDiv.textContent = 'Fetching workers...';
+            
+            try {
+                const url = `${BACKEND_URL}/api/workers/nearby?lat=${lat}&lng=${lng}&radius=${radius}`;
+                console.log('Fetching:', url);
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Found ${data.count} workers!\n\n`;
+                    resultDiv.textContent += `Location: (${lat}, ${lng})\n`;
+                    resultDiv.textContent += `Radius: ${radius}km\n\n`;
+                    
+                    if (data.workers && data.workers.length > 0) {
+                        resultDiv.textContent += 'Workers:\n';
+                        data.workers.forEach((worker, i) => {
+                            resultDiv.textContent += `\n${i + 1}. ${worker.first_name} ${worker.last_name}`;
+                            resultDiv.textContent += `\n   Location: ${worker.location?.area || 'N/A'}, ${worker.location?.city || 'N/A'}`;
+                            resultDiv.textContent += `\n   Distance: ${worker.distanceText || 'N/A'}`;
+                            resultDiv.textContent += `\n   Rating: ${worker.rating || 'N/A'} ⭐`;
+                            resultDiv.textContent += `\n`;
+                        });
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ ${data.message || 'Failed to fetch workers'}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+
+        // Auto-test on load
+        window.onload = () => {
+            console.log('Testing backend connection...');
+            testBackend();
+        };
+    </script>
+</body>
+</html>

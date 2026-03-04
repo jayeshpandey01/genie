@@ -11,6 +11,7 @@
     "setup:marketplace": "node scripts/setupMarketplace.js",
     "seed:categories": "node scripts/seedCategories.js",
     "create:admin": "node scripts/createAdmin.js",
+    "create:sample-workers": "node scripts/createSampleWorkers.js",
     "optimize:db": "node scripts/optimizeDatabase.js",
     "security:audit": "npm audit",
     "security:fix": "npm audit fix"

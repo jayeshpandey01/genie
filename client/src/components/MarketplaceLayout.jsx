@@ -93,7 +93,7 @@ const MarketplaceLayout = memo(function MarketplaceLayout({
     };
 
     return (
-        <div className="min-h-screen bg-[#FFFFEE] flex flex-col">
+        <div className="min-h-screen bg-[#FFFFEE] flex flex-col" style={{ overflow: 'visible' }}>
             {/* Breadcrumb Navigation */}
             <div className="bg-white border-b border-gray-200 px-4 py-3">
                 <nav className="flex" aria-label="Breadcrumb">
@@ -122,7 +122,7 @@ const MarketplaceLayout = memo(function MarketplaceLayout({
             </div>
 
             {/* Search Bar */}
-            <div className="bg-white border-b border-gray-200 px-4 py-4">
+            <div className="bg-white border-b border-gray-200 px-4 py-4 relative z-40">
                 <div className="max-w-7xl mx-auto">
                     <div className="flex gap-4 items-center justify-between">
                         <SearchBar
@@ -214,7 +214,7 @@ const MarketplaceLayout = memo(function MarketplaceLayout({
                     )}
 
                     {/* Main Content */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 relative">
                         {children}
                     </div>
                 </div>

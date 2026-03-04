@@ -18,6 +18,7 @@ import razorpayRoutes from "./routes/razorpay.js";
 import authRoutes from "./routes/auth.js";
 import marketplaceRoutes from "./routes/marketplace.js";
 import workerRoutes from "./routes/workers.js";
+import bookingsRoutes from "./routes/bookings.js";
 
 import AdminServices from "./routes/AdminServices.js";
 import adminDashboardRoutes from "./routes/AdminDashboard.js";
@@ -166,6 +167,7 @@ app.use("/api/services", servicesRoutes);
 app.use("/api/razorpay", razorpayRoutes);
 app.use("/api/marketplace", marketplaceRoutes);
 app.use("/api/workers", workerRoutes);
+app.use("/api/bookings", bookingsRoutes);
 
 // Admin routes
 app.use("/api/admin/services", AdminServices);

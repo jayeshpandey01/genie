@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Dropdown Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 50px;
+            background-color: #ffffee;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+            background-color: white;
+            cursor: pointer;
+            position: relative;
+            z-index: 9999 !important;
+        }
+        
+        select:focus {
+            outline: 2px solid #3b82f6;
+            z-index: 99999 !important;
+        }
+        
+        select option {
+            background-color: white !important;
+            color: #000000 !important;
+            padding: 12px 8px !important;
+            min-height: 44px !important;
+            font-size: 16px !important;
+            line-height: 1.5 !important;
+        }
+        
+        select option:hover,
+        select option:focus,
+        select option:checked {
+            background-color: #3b82f6 !important;
+            color: white !important;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Select Dropdown Test</h1>
+        <p>Click on the dropdowns below to test if options are visible:</p>
+        
+        <div class="form-group">
+            <label for="category">Category</label>
+            <select id="category" name="category">
+                <option value="">Select a category</option>
+                <option value="electronics">Electronics</option>
+                <option value="furniture">Furniture</option>
+                <option value="vehicles">Vehicles</option>
+                <option value="clothing">Clothing</option>
+                <option value="books">Books</option>
+                <option value="sports">Sports</option>
+                <option value="home-garden">Home & Garden</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="condition">Condition</label>
+            <select id="condition" name="condition">
+                <option value="">Select condition</option>
+                <option value="new">New</option>
+                <option value="like-new">Like New</option>
+                <option value="good">Good</option>
+                <option value="fair">Fair</option>
+                <option value="poor">Poor</option>
+            </select>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+    
+    <script>
+        document.getElementById('category').addEventListener('change', function(e) {
+            document.getElementById('result').innerHTML = '<p style="color: green;">Category selected: ' + e.target.value + '</p>';
+        });
+        
+        document.getElementById('condition').addEventListener('change', function(e) {
+            document.getElementById('result').innerHTML = '<p style="color: green;">Condition selected: ' + e.target.value + '</p>';
+        });
+    </script>
+</body>
+</html>

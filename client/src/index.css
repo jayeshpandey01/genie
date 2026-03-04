@@ -163,3 +163,61 @@ textarea {
 .scrollbar-hide::-webkit-scrollbar {
     display: none; /* Chrome, Safari and Opera */
 }
+
+/* Fix for select dropdown visibility */
+select {
+    position: relative;
+    z-index: 9999 !important;
+    cursor: pointer;
+    background-color: white !important;
+}
+
+select option {
+    background-color: white !important;
+    color: #000000 !important;
+    padding: 12px 8px !important;
+    min-height: 44px !important;
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+}
+
+/* Ensure select dropdowns appear above other content */
+select:focus {
+    z-index: 99999 !important;
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Fix for Windows/Chrome select dropdown rendering */
+select:not([size]):not([multiple]) {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+/* Force select to be visible and readable */
+select, select * {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Fix for option hover state */
+select option:hover,
+select option:focus,
+select option:checked {
+    background-color: #3b82f6 !important;
+    color: white !important;
+}
+
+/* Firefox specific fixes */
+@-moz-document url-prefix() {
+    select option {
+        background-color: white !important;
+        color: black !important;
+    }
+}

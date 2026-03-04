@@ -8,14 +8,20 @@ import {
     verifyRazorpayPayment,
 } from "../utils/api";
 import { useAuth } from "../context/AuthContext";
+import { useUserLocation } from "../context/LocationContext";
 import PortalContext from "../context/PortalContext";
 import { ImageOff, PackageOpen } from "lucide-react";
+import { HiCheckCircle, HiUser } from "react-icons/hi2";
 import axios from "axios";
+import WorkerSelection from "../components/WorkerSelection";
 
 export default function Cart() {
     const { user, isAuthenticated } = useAuth();
+    const { userLocation } = useUserLocation();
     const navigate = useNavigate();
     const [paymentMethod, setPaymentMethod] = useState("online"); // "online" or "cod"
+    const [selectedWorkers, setSelectedWorkers] = useState({}); // { serviceId: worker }
+    const [showWorkerSelection, setShowWorkerSelection] = useState(false);
 
     const { openLogin } = useContext(PortalContext);
 
@@ -65,14 +71,36 @@ export default function Cart() {
         if (!isAuthenticated) {
             openLogin();
             return;
+        }
+        
+        // Check if all services have workers assigned
+        const servicesWithoutWorkers = sortedCartServices.filter(
+            service => !selectedWorkers[service._id]
+        );
+        
+        if (servicesWithoutWorkers.length > 0) {
+            alert('Please select a worker for all services before proceeding to payment');
+            setShowWorkerSelection(true);
+            return;
+        }
+        
+        if (paymentMethod === "cod") {
+            handleCODOrder();
         } else {
-            if (paymentMethod === "cod") {
-                handleCODOrder();
-            } else {
-                handlePayment();
-            }
+            handlePayment();
         }
     };
+
+    const handleWorkerSelect = (serviceId, worker) => {
+        setSelectedWorkers(prev => ({
+            ...prev,
+            [serviceId]: worker
+        }));
+    };
+
+    const allWorkersSelected = sortedCartServices.every(
+        service => selectedWorkers[service._id]
+    );
 
     const handleCODOrder = async () => {
         try {
@@ -81,7 +109,7 @@ export default function Cart() {
             const tax = getCartTax();
             const total = getCartTotal();
 
-            // Create COD order
+            // Create COD order with worker assignments
             const orderData = {
                 userId: user._id,
                 paymentMethod: "cod",
@@ -93,6 +121,7 @@ export default function Cart() {
                     quantity: service.quantity,
                     price: service.OurPrice,
                     total: service.OurPrice * service.quantity,
+                    assignedWorker: selectedWorkers[service._id]?._id, // Add worker ID
                 })),
                 summary: {
                     subtotal,
@@ -105,6 +134,12 @@ export default function Cart() {
                     email: user.email,
                     phone: user.phone,
                 },
+                workerAssignments: Object.entries(selectedWorkers).map(([serviceId, worker]) => ({
+                    serviceId,
+                    workerId: worker._id,
+                    workerName: `${worker.first_name} ${worker.last_name}`,
+                    workerPhone: worker.phone
+                }))
             };
 
             const response = await axios.post(
@@ -120,7 +155,7 @@ export default function Cart() {
                 });
                 await clearUserCart();
                 
-                alert("Order placed successfully! Pay cash on delivery.");
+                alert("Order placed successfully! Workers have been assigned. Pay cash on delivery.");
                 navigate("/bookings");
             }
         } catch (error) {
@@ -136,7 +171,7 @@ export default function Cart() {
             const tax = getCartTax();
             const total = getCartTotal();
 
-            // Create order
+            // Create order with worker assignments
             const orderData = {
                 _id: user._id,
                 amount: parseFloat((total * 100).toFixed(2)),
@@ -149,6 +184,7 @@ export default function Cart() {
                     quantity: service.quantity,
                     price: service.OurPrice,
                     total: service.OurPrice * service.quantity,
+                    assignedWorker: selectedWorkers[service._id]?._id, // Add worker ID
                 })),
                 summary: {
                     subtotal,
@@ -161,6 +197,12 @@ export default function Cart() {
                     email: user.email,
                     phone: user.phone,
                 },
+                workerAssignments: Object.entries(selectedWorkers).map(([serviceId, worker]) => ({
+                    serviceId,
+                    workerId: worker._id,
+                    workerName: `${worker.first_name} ${worker.last_name}`,
+                    workerPhone: worker.phone
+                }))
             };
 
             const order = await createRazorpayOrder(orderData);
@@ -226,106 +268,241 @@ export default function Cart() {
     };
 
     return (
-        <div className="h-[79.6vh] flex gap-6 pb-8">
-            <div className="w-3/4 h-full flex flex-col pr-6 border-r border-black">
+        <div className="min-h-screen flex gap-6 pb-8">
+            <div className="w-3/4 flex flex-col pr-6 border-r border-black">
                 <h1 className="text-4xl font-bold uppercase tracking-wider pb-6 font-[NeuwMachina]">
                     Cart
                 </h1>
-                <div className="w-full grid grid-cols-6 gap-8 text-gray-600 text-sm tracking-wider uppercase py-2 pr-8">
-                    <h1>Service</h1>
-                    <h1 className="col-span-3">Description</h1>
-                    <h1>Price</h1>
-                    <h1>Quantity</h1>
+                
+                {/* Toggle between Cart Items and Worker Selection */}
+                <div className="flex gap-4 mb-6">
+                    <button
+                        onClick={() => setShowWorkerSelection(false)}
+                        className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                            !showWorkerSelection
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                    >
+                        1. Cart Items ({sortedCartServices.length})
+                    </button>
+                    <button
+                        onClick={() => setShowWorkerSelection(true)}
+                        className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                            showWorkerSelection
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                    >
+                        2. Select Workers
+                        {allWorkersSelected && (
+                            <HiCheckCircle className="h-5 w-5 text-green-400" />
+                        )}
+                    </button>
                 </div>
-                <hr className="mt-1 mb-6 border-t border-gray-600" />
-                <div className="flex-grow overflow-auto">
-                    {Array.from(
-                        new Set(sortedCartServices.map((s) => s.category))
-                    ).map((category, id) => (
-                        <div key={category} className="mr-6">
-                            <div className="flex items-center pb-4 gap-2">
-                                <PackageOpen size={17} color="#16a34a " />
-                                <h1 className="text-green-600 text-sm font-extrabold uppercase tracking-wide">
-                                    {category}
-                                </h1>
-                            </div>
-                            {sortedCartServices
-                                .filter(
-                                    (service) => service.category === category
-                                )
-                                .map((service, id) => (
-                                    <div key={id}>
-                                        <div className="flex justify-between gap-4">
-                                            <div className="w-full grid grid-cols-6 gap-8">
-                                                {service.image ? (
-                                                    <img
-                                                        src={`${
-                                                            import.meta.env
-                                                                .VITE_BACKEND_URL
-                                                        }/${service.image}`}
-                                                        alt={service.title}
-                                                        className="w-36 h-20 object-cover text-xs border border-black bg-gray-100 rounded"
-                                                    />
-                                                ) : (
-                                                    <div className="w-36 h-20 flex flex-col gap-1 items-center justify-center border border-black bg-gray-100 rounded">
-                                                        <ImageOff
-                                                            size={16}
-                                                            color="#525252"
-                                                        />
-                                                        <h1 className="text-xs text-neutral-600">Image unavailable</h1>
-                                                    </div>
-                                                )}
-                                                <p className="h-full flex items-center col-span-3">
-                                                    {service.title}
-                                                </p>
-                                                <p className="h-full flex items-center">
-                                                    ₹{service.OurPrice}
-                                                </p>
-                                                <div className="h-full flex items-center">
-                                                    <div className="w-20 h-7 flex items-center justify-center text-sm border border-black rounded overflow-hidden">
-                                                        <button
-                                                            onClick={() =>
-                                                                removeFromCart(
-                                                                    service
-                                                                )
-                                                            }
-                                                            className="w-full h-full bg-yellow-300 text-black border-r border-black pt-1 pb-1.5 leading-[1] hover:bg-amber-300 transition-colors duration-300"
-                                                        >
-                                                            -
-                                                        </button>
-                                                        <span className="bg-[#FFFFEE] w-20 h-full leading-[1.625rem] text-center">
-                                                            {
-                                                                cartServices.find(
-                                                                    (
-                                                                        cartService
-                                                                    ) =>
-                                                                        cartService._id ===
-                                                                        service._id
-                                                                ).quantity
-                                                            }
-                                                        </span>
-                                                        <button
-                                                            onClick={() =>
-                                                                addToCart(
-                                                                    service
-                                                                )
-                                                            }
-                                                            className="w-full h-full bg-yellow-300 text-black border-l border-black pt-1 pb-1.5 leading-[1] hover:bg-amber-300 transition-colors duration-300"
-                                                        >
-                                                            +
-                                                        </button>
+
+                {!showWorkerSelection ? (
+                    <>
+                        {/* Cart Items View */}
+                        <div className="w-full grid grid-cols-6 gap-8 text-gray-600 text-sm tracking-wider uppercase py-2 pr-8">
+                            <h1>Service</h1>
+                            <h1 className="col-span-3">Description</h1>
+                            <h1>Price</h1>
+                            <h1>Quantity</h1>
+                        </div>
+                        <hr className="mt-1 mb-6 border-t border-gray-600" />
+                        <div className="flex-grow overflow-auto">
+                            {Array.from(
+                                new Set(sortedCartServices.map((s) => s.category))
+                            ).map((category, id) => (
+                                <div key={category} className="mr-6">
+                                    <div className="flex items-center pb-4 gap-2">
+                                        <PackageOpen size={17} color="#16a34a " />
+                                        <h1 className="text-green-600 text-sm font-extrabold uppercase tracking-wide">
+                                            {category}
+                                        </h1>
+                                    </div>
+                                    {sortedCartServices
+                                        .filter(
+                                            (service) => service.category === category
+                                        )
+                                        .map((service, id) => (
+                                            <div key={id}>
+                                                <div className="flex justify-between gap-4">
+                                                    <div className="w-full grid grid-cols-6 gap-8">
+                                                        {service.image ? (
+                                                            <img
+                                                                src={`${
+                                                                    import.meta.env
+                                                                        .VITE_BACKEND_URL
+                                                                }/${service.image}`}
+                                                                alt={service.title}
+                                                                className="w-36 h-20 object-cover text-xs border border-black bg-gray-100 rounded"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-36 h-20 flex flex-col gap-1 items-center justify-center border border-black bg-gray-100 rounded">
+                                                                <ImageOff
+                                                                    size={16}
+                                                                    color="#525252"
+                                                                />
+                                                                <h1 className="text-xs text-neutral-600">Image unavailable</h1>
+                                                            </div>
+                                                        )}
+                                                        <p className="h-full flex items-center col-span-3">
+                                                            {service.title}
+                                                        </p>
+                                                        <p className="h-full flex items-center">
+                                                            ₹{service.OurPrice}
+                                                        </p>
+                                                        <div className="h-full flex items-center">
+                                                            <div className="w-20 h-7 flex items-center justify-center text-sm border border-black rounded overflow-hidden">
+                                                                <button
+                                                                    onClick={() =>
+                                                                        removeFromCart(
+                                                                            service
+                                                                        )
+                                                                    }
+                                                                    className="w-full h-full bg-yellow-300 text-black border-r border-black pt-1 pb-1.5 leading-[1] hover:bg-amber-300 transition-colors duration-300"
+                                                                >
+                                                                    -
+                                                                </button>
+                                                                <span className="bg-[#FFFFEE] w-20 h-full leading-[1.625rem] text-center">
+                                                                    {
+                                                                        cartServices.find(
+                                                                            (
+                                                                                cartService
+                                                                            ) =>
+                                                                                cartService._id ===
+                                                                                service._id
+                                                                        ).quantity
+                                                                    }
+                                                                </span>
+                                                                <button
+                                                                    onClick={() =>
+                                                                        addToCart(
+                                                                            service
+                                                                        )
+                                                                    }
+                                                                    className="w-full h-full bg-yellow-300 text-black border-l border-black pt-1 pb-1.5 leading-[1] hover:bg-amber-300 transition-colors duration-300"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
+                                                {id < sortedCartServices.length - 1 && (
+                                                    <hr className="border-t border-dashed border-black my-4" />
+                                                )}
+                                            </div>
+                                        ))}
+                                </div>
+                            ))}
+                        </div>
+                        
+                        {/* Next Button */}
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                onClick={() => setShowWorkerSelection(true)}
+                                className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                            >
+                                Next: Select Workers →
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Worker Selection View */}
+                        <div className="flex-grow overflow-auto space-y-6">
+                            {sortedCartServices.map((service) => (
+                                <div key={service._id} className="bg-white rounded-lg border-2 border-gray-200 p-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-4">
+                                            {service.image ? (
+                                                <img
+                                                    src={`${import.meta.env.VITE_BACKEND_URL}/${service.image}`}
+                                                    alt={service.title}
+                                                    className="w-16 h-16 object-cover rounded border border-gray-300"
+                                                />
+                                            ) : (
+                                                <div className="w-16 h-16 flex items-center justify-center border border-gray-300 bg-gray-100 rounded">
+                                                    <ImageOff size={20} color="#525252" />
+                                                </div>
+                                            )}
+                                            <div>
+                                                <h3 className="font-semibold text-lg">{service.title}</h3>
+                                                <p className="text-sm text-gray-600">₹{service.OurPrice}</p>
                                             </div>
                                         </div>
-                                        {id < sortedCartServices.length - 1 && (
-                                            <hr className="border-t border-dashed border-black my-4" />
+                                        {selectedWorkers[service._id] && (
+                                            <div className="flex items-center gap-2 text-green-600">
+                                                <HiCheckCircle className="h-6 w-6" />
+                                                <span className="font-medium">Worker Selected</span>
+                                            </div>
                                         )}
                                     </div>
-                                ))}
+                                    
+                                    {selectedWorkers[service._id] ? (
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold">
+                                                        {selectedWorkers[service._id].first_name?.[0]}
+                                                        {selectedWorkers[service._id].last_name?.[0]}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold">
+                                                            {selectedWorkers[service._id].first_name} {selectedWorkers[service._id].last_name}
+                                                        </p>
+                                                        <p className="text-sm text-gray-600">
+                                                            {selectedWorkers[service._id].phone}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        const newWorkers = { ...selectedWorkers };
+                                                        delete newWorkers[service._id];
+                                                        setSelectedWorkers(newWorkers);
+                                                    }}
+                                                    className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                                                >
+                                                    Change Worker
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <WorkerSelection
+                                            serviceId={service.title}
+                                            userLocation={userLocation}
+                                            onWorkerSelect={(worker) => handleWorkerSelect(service._id, worker)}
+                                            selectedWorkerId={selectedWorkers[service._id]?._id}
+                                        />
+                                    )}
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                        
+                        {/* Navigation Buttons */}
+                        <div className="mt-6 flex justify-between">
+                            <button
+                                onClick={() => setShowWorkerSelection(false)}
+                                className="px-8 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                            >
+                                ← Back to Cart
+                            </button>
+                            {allWorkersSelected && (
+                                <button
+                                    onClick={() => setShowWorkerSelection(false)}
+                                    className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2"
+                                >
+                                    <HiCheckCircle className="h-5 w-5" />
+                                    All Workers Selected - Proceed to Payment
+                                </button>
+                            )}
+                        </div>
+                    </>
+                )}
             </div>
             <div className="h-full w-1/4 bg-yellow-200 flex flex-col justify-between rounded-md overflow-hidden">
                 <h1 className="text-2xl font-bold uppercase tracking-wider p-5 pb-0">
@@ -390,6 +567,52 @@ export default function Cart() {
                     </div>
                 </div>
                 
+                {/* Worker Selection Status */}
+                {!allWorkersSelected && (
+                    <div className="px-5 pb-4">
+                        <div className="bg-orange-100 border-2 border-orange-400 rounded-lg p-3">
+                            <div className="flex items-start gap-2">
+                                <HiUser className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-sm font-semibold text-orange-800">Workers Not Selected</p>
+                                    <p className="text-xs text-orange-700 mt-1">
+                                        Please select a worker for each service before proceeding to payment.
+                                    </p>
+                                    <button
+                                        onClick={() => setShowWorkerSelection(true)}
+                                        className="mt-2 text-xs font-medium text-orange-800 underline hover:text-orange-900"
+                                    >
+                                        Select Workers Now →
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Selected Workers Summary */}
+                {allWorkersSelected && (
+                    <div className="px-5 pb-4">
+                        <h2 className="text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <HiCheckCircle className="h-5 w-5 text-green-600" />
+                            Selected Workers
+                        </h2>
+                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {Object.entries(selectedWorkers).map(([serviceId, worker]) => {
+                                const service = sortedCartServices.find(s => s._id === serviceId);
+                                return (
+                                    <div key={serviceId} className="text-xs bg-green-50 border border-green-200 rounded p-2">
+                                        <p className="font-medium text-gray-800 truncate">{service?.title}</p>
+                                        <p className="text-gray-600">
+                                            {worker.first_name} {worker.last_name}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
                 {/* Payment Method Selection */}
                 <div className="px-5 pb-4">
                     <h2 className="text-sm font-bold uppercase tracking-wider mb-3">Payment Method</h2>
@@ -427,9 +650,19 @@ export default function Cart() {
                 
                 <button
                     onClick={(e) => handlePaymentWrap(e)}
-                    className="w-full tracking-wider bg-blue-800 text-white p-6 hover:bg-blue-900 transition-colors duration-300"
+                    disabled={!allWorkersSelected}
+                    className={`w-full tracking-wider p-6 transition-colors duration-300 ${
+                        allWorkersSelected
+                            ? 'bg-blue-800 text-white hover:bg-blue-900 cursor-pointer'
+                            : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    }`}
                 >
-                    {paymentMethod === "cod" ? "PLACE ORDER (COD)" : "PAY NOW"}
+                    {!allWorkersSelected 
+                        ? "SELECT WORKERS FIRST" 
+                        : paymentMethod === "cod" 
+                            ? "PLACE ORDER (COD)" 
+                            : "PAY NOW"
+                    }
                 </button>
             </div>
         </div>

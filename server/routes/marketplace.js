@@ -56,12 +56,23 @@ router.get("/listings", searchLimiter, validateQuery(schemas.search), optionalAu
             priceMax,
             condition,
             location,
+            listingType, // 'all', 'sale', 'rent'
             sortBy = 'createdAt',
             sortOrder = 'desc'
         } = req.query;
 
         // Build query filters with validation
         const filters = { status: 'active' };
+
+        // Listing type filter (sale/rent)
+        if (listingType) {
+            if (listingType === 'rent') {
+                filters.isRental = true;
+            } else if (listingType === 'sale') {
+                filters.isRental = { $ne: true };
+            }
+            // 'all' or undefined shows both
+        }
 
         // Category filter - validate against existing categories
         if (category) {
@@ -1186,29 +1197,35 @@ router.get("/images/:filename", async (req, res) => {
 // POST /api/marketplace/listings
 router.post("/listings", authenticateUser, async (req, res) => {
     try {
-        const { title, description, category, price, condition, location } = req.body;
+        const { 
+            title, description, category, price, condition, location,
+            // Rental fields
+            isRental, rentalPeriod, rentalPrice, securityDeposit,
+            availableFrom, availableTo, minRentalDays
+        } = req.body;
 
         // Validate required fields
-        if (!title || !description || !category || price === undefined || !condition || !location) {
+        const requiredFields = ['title', 'description', 'category', 'condition', 'location'];
+        const missingFields = requiredFields.filter(field => !req.body[field]);
+        
+        // Price is required only if not rental-only
+        if (!isRental && price === undefined) {
+            missingFields.push('price');
+        }
+        
+        // Rental price is required if rental enabled
+        if (isRental && !rentalPrice) {
+            missingFields.push('rentalPrice');
+        }
+
+        if (missingFields.length > 0) {
             return res.status(400).json({
                 success: false,
                 message: 'Missing required fields',
-                errors: [
-                    { field: 'title', message: 'Title is required' },
-                    { field: 'description', message: 'Description is required' },
-                    { field: 'category', message: 'Category is required' },
-                    { field: 'price', message: 'Price is required' },
-                    { field: 'condition', message: 'Condition is required' },
-                    { field: 'location', message: 'Location is required' }
-                ].filter(error => {
-                    if (error.field === 'title') return !title;
-                    if (error.field === 'description') return !description;
-                    if (error.field === 'category') return !category;
-                    if (error.field === 'price') return price === undefined;
-                    if (error.field === 'condition') return !condition;
-                    if (error.field === 'location') return !location;
-                    return false;
-                })
+                errors: missingFields.map(field => ({
+                    field,
+                    message: `${field.charAt(0).toUpperCase() + field.slice(1)} is required`
+                }))
             });
         }
 
@@ -1223,16 +1240,42 @@ router.post("/listings", authenticateUser, async (req, res) => {
         }
 
         // Create new listing
-        const listing = new Listing({
+        const listingData = {
             title: title.trim(),
             description: description.trim(),
             category,
-            price: parseFloat(price),
             condition,
             location: location.trim(),
             seller: req.user._id,
             status: 'active'
-        });
+        };
+
+        // Add price if provided
+        if (price !== undefined) {
+            listingData.price = parseFloat(price);
+        }
+
+        // Add rental fields if rental enabled
+        if (isRental) {
+            listingData.isRental = true;
+            listingData.rentalPeriod = rentalPeriod;
+            listingData.rentalPrice = parseFloat(rentalPrice);
+            
+            if (securityDeposit) {
+                listingData.securityDeposit = parseFloat(securityDeposit);
+            }
+            if (availableFrom) {
+                listingData.availableFrom = new Date(availableFrom);
+            }
+            if (availableTo) {
+                listingData.availableTo = new Date(availableTo);
+            }
+            if (minRentalDays) {
+                listingData.minRentalDays = parseInt(minRentalDays);
+            }
+        }
+
+        const listing = new Listing(listingData);
 
         // Save listing
         await listing.save();

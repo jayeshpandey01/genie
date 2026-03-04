@@ -66,9 +66,10 @@ const WorkerSchema = new mongoose.Schema({
         pincode: { type: String },
         formattedAddress: { type: String },
         coordinates: {
-            lat: { type: Number },
-            lng: { type: Number }
-        }
+            lat: { type: Number, index: true },
+            lng: { type: Number, index: true }
+        },
+        lastUpdated: { type: Date, default: Date.now }
     },
     
     availability: {
@@ -178,6 +179,42 @@ WorkerSchema.methods.updateRating = async function(newRating) {
     this.stats.totalRatings = newTotalRatings;
     
     return await this.save();
+};
+
+// Method to update location
+WorkerSchema.methods.updateLocation = async function(lat, lng) {
+    this.location.coordinates.lat = lat;
+    this.location.coordinates.lng = lng;
+    this.location.lastUpdated = new Date();
+    return await this.save();
+};
+
+// Static method to find nearby workers
+WorkerSchema.statics.findNearby = function(lat, lng, radiusKm = 10, skillCategory = null) {
+    const query = {
+        status: 'approved',
+        'location.coordinates.lat': {
+            $gte: lat - (radiusKm / 111), // Rough conversion: 1 degree ≈ 111 km
+            $lte: lat + (radiusKm / 111)
+        },
+        'location.coordinates.lng': {
+            $gte: lng - (radiusKm / 111),
+            $lte: lng + (radiusKm / 111)
+        }
+    };
+
+    // Optional: Filter by skill if provided, but don't make it required
+    if (skillCategory) {
+        // Use $or to match either the skill OR show all workers if no exact match
+        query.$or = [
+            { 'skills.serviceName': skillCategory },
+            { 'skills.serviceName': { $exists: true } } // Show all workers with any skills
+        ];
+    }
+
+    return this.find(query)
+        .select('first_name last_name phone email location skills stats.rating stats.totalRatings stats.totalJobsCompleted profile.profileImage availability')
+        .lean();
 };
 
 export default mongoose.model("Worker", WorkerSchema);
